@@ -9,6 +9,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import demos.surfaceview.collisions.shapes.FmCircle;
@@ -19,6 +20,8 @@ import demos.surfaceview.collisions.threads.FmBubblesDrawThread;
  */
 public class CircleSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
 
+    public static float DAMPENING = 0.5f;
+    public static float GRAVITY = 0.007f;
     private SurfaceHolder surfaceHolder;
     private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private FmBubblesDrawThread drawThread;
@@ -43,8 +46,19 @@ public class CircleSurfaceView extends SurfaceView implements SurfaceHolder.Call
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if(event.getAction() == MotionEvent.ACTION_DOWN) {
-            if (surfaceHolder != null && surfaceHolder.getSurface().isValid()) {
-                circles.add(new FmCircle(event.getX(), event.getY(), (float) Math.random()*80, 3, 3));
+            if((event.getX() < rightLocation*0.25f && event.getY() < bottomLocation*0.25f) && GRAVITY != 0) {
+                GRAVITY = 0;
+                DAMPENING = 1;
+                Random rand = new Random();
+                for(FmCircle circle : circles) {
+                    circle.velocityX = (rand.nextInt(3)) - 1 + 2;
+                    circle.velocityY = (float) Math.random()*5;
+                }
+            } else if((event.getX() < rightLocation*0.25f && event.getY() < bottomLocation*0.25f) && GRAVITY == 0) {
+                GRAVITY = 0.007f;
+                DAMPENING = 0.5f;
+            } else if (surfaceHolder != null && surfaceHolder.getSurface().isValid()) {
+                circles.add(new FmCircle(event.getX(), event.getY(), (float) Math.random()*60, 2, 2));
             }
         }
         return false;
@@ -52,18 +66,39 @@ public class CircleSurfaceView extends SurfaceView implements SurfaceHolder.Call
 
     public void updatePositions() {
         for(FmCircle circle : circles) {
-            float x = circle.x + circle.radius;
-            float y = circle.y + circle.radius;
-            if(x >= rightLocation || (circle. x - circle.radius) <= leftLocation) {
-                circle.velocityX *= -1;
-            }
-            if (y >= bottomLocation || (circle.y - circle.radius) <= topLocation) {
-                circle.velocityY*= -1;
-            }
+            handleSideCollisions(circle);
             circle.x+=circle.velocityX;
             circle.y+=circle.velocityY;
         }
         calcualteCollisions();
+    }
+
+    private void handleSideCollisions(FmCircle circle) {
+        float x = circle.x + circle.radius;
+        float y = circle.y + circle.radius;
+        if(x >= rightLocation) {
+            circle.velocityX *= -1;
+            circle.velocityX *= DAMPENING;
+            circle.x = rightLocation - circle.radius;
+        }
+        if((circle. x - circle.radius) <= leftLocation) {
+            circle.velocityX *= -1;
+            circle.velocityX *= DAMPENING;
+            circle.x = leftLocation + circle.radius;
+        }
+
+        if (y >= bottomLocation) {
+            circle.velocityY *= -1;
+            circle.velocityY *= DAMPENING;
+            circle.y = bottomLocation - circle.radius;
+        } else {
+            circle.velocityY += circle.radius * GRAVITY;
+        }
+
+        if ((circle.y - circle.radius) <= topLocation) {
+            circle.velocityY*= -1;
+            circle.y = topLocation + circle.radius;
+        }
     }
 
     private void calcualteCollisions() {
@@ -93,10 +128,10 @@ public class CircleSurfaceView extends SurfaceView implements SurfaceHolder.Call
                             otherCircle.velocityX = velocityX2;
                             otherCircle.velocityY = velocityY2;
 
-                            circle.x = circle.x + circle.velocityX;
-                            circle.y = circle.y + circle.velocityY;
-                            otherCircle.x = otherCircle.x + otherCircle.velocityX;
-                            otherCircle.y = otherCircle.y + otherCircle.velocityY;
+                            circle.x += circle.velocityX;
+                            circle.y += circle.velocityY;
+                            otherCircle.x += otherCircle.velocityX;
+                            otherCircle.y += otherCircle.velocityY;
                         }
                     }
                 }
@@ -107,12 +142,14 @@ public class CircleSurfaceView extends SurfaceView implements SurfaceHolder.Call
     public void update() {
         if (surfaceHolder.getSurface().isValid()) {
             Canvas canvas = surfaceHolder.lockCanvas();
-            canvas.drawColor(Color.BLACK);
-            for(FmCircle circle : circles) {
-                paint.setColor(circle.colorRes);
-                canvas.drawCircle(circle.x, circle.y, circle.radius, paint);
+            if(canvas != null) {
+                canvas.drawColor(Color.BLACK);
+                for(FmCircle circle : circles) {
+                    paint.setColor(circle.colorRes);
+                    canvas.drawCircle(circle.x, circle.y, circle.radius, paint);
+                }
+                surfaceHolder.unlockCanvasAndPost(canvas);
             }
-            surfaceHolder.unlockCanvasAndPost(canvas);
         }
     }
 

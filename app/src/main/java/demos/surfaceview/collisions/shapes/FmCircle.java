@@ -13,7 +13,7 @@ public class FmCircle {
     public float velocityX;
     public float velocityY;
     public int colorRes = Color.GREEN;
-    public int mass = 10;
+    public int mass;
 
     public FmCircle(float x, float y, float radius, float velocityX, float velocityY) {
         this.x = x;
